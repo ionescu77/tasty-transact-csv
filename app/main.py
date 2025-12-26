@@ -54,6 +54,24 @@ async def transactions_page(request: Request):
     )
 
 
+@app.get("/spreads", response_class=HTMLResponse)
+async def spreads_page(request: Request):
+    """Spreads list page."""
+    return templates.TemplateResponse(
+        "spreads.html",
+        {"request": request}
+    )
+
+
+@app.get("/analytics", response_class=HTMLResponse)
+async def analytics_page(request: Request):
+    """Analytics and summary page."""
+    return templates.TemplateResponse(
+        "analytics.html",
+        {"request": request}
+    )
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""

@@ -181,7 +181,12 @@ class TransactionService:
         if account_id:
             query = query.where(Transaction.account_id == account_id)
         if symbol:
-            query = query.where(Transaction.symbol == symbol)
+            # Case-insensitive partial match for symbol, root_symbol, or underlying_symbol
+            query = query.where(
+                (Transaction.symbol.ilike(f"%{symbol}%")) |
+                (Transaction.root_symbol.ilike(f"%{symbol}%")) |
+                (Transaction.underlying_symbol.ilike(f"%{symbol}%"))
+            )
         if transaction_type:
             query = query.where(Transaction.type == transaction_type)
         if strategy_tag:
