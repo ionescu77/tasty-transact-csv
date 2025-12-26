@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transactions - TastyTrade Analyzer</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f7;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        
+        .nav {
+            margin-top: 15px;
+        }
+        
+        .nav a {
+            color: #0066cc;
+            text-decoration: none;
+            margin-right: 20px;
+            font-size: 1rem;
+        }
+        
+        .nav a:hover {
+            text-decoration: underline;
+        }
+        
+        .filters {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .filter-group label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #666;
+        }
+        
+        .filter-group input,
+        .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid #d2d2d7;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        
+        thead {
+            background: #f5f5f7;
+            position: sticky;
+            top: 0;
+        }
+        
+        th {
+            text-align: left;
+            padding: 12px;
+            font-weight: 600;
+            color: #1d1d1f;
+            border-bottom: 2px solid #d2d2d7;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .badge-buy {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .badge-sell {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .badge-option {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        
+        .badge-dividend {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        
+        .amount-positive {
+            color: #2e7d32;
+            font-weight: 500;
+        }
+        
+        .amount-negative {
+            color: #c62828;
+            font-weight: 500;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0066cc;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>📊 TastyTrade Transaction Analyzer</h1>
+            <nav class="nav">
+                <a href="/">Home</a>
+                <a href="/transactions">Transactions</a>
+            </nav>
+        </div>
+    </header>
+    
+    <main class="container">
+        <div class="filters">
+            <div class="filter-group">
+                <label for="symbol">Symbol</label>
+                <input 
+                    type="text" 
+                    id="symbol" 
+                    name="symbol" 
+                    placeholder="e.g., AAPL"
+                    hx-get="/api/transactions"
+                    hx-trigger="keyup changed delay:500ms"
+                    hx-target="#transactions-table"
+                    hx-include="[name='transaction_type'], [name='strategy_tag']"
+                >
+            </div>
+            
+            <div class="filter-group">
+                <label for="transaction_type">Type</label>
+                <select 
+                    id="transaction_type" 
+                    name="transaction_type"
+                    hx-get="/api/transactions"
+                    hx-trigger="change"
+                    hx-target="#transactions-table"
+                    hx-include="[name='symbol'], [name='strategy_tag']"
+                >
+                    <option value="">All Types</option>
+                    <option value="stock_buy">Stock Buy</option>
+                    <option value="stock_sell">Stock Sell</option>
+                    <option value="option_buy">Option Buy</option>
+                    <option value="option_sell">Option Sell</option>
+                    <option value="dividend">Dividend</option>
+                    <option value="deposit">Deposit</option>
+                    <option value="withdrawal">Withdrawal</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="strategy_tag">Strategy Tag</label>
+                <select 
+                    id="strategy_tag" 
+                    name="strategy_tag"
+                    hx-get="/api/transactions"
+                    hx-trigger="change"
+                    hx-target="#transactions-table"
+                    hx-include="[name='symbol'], [name='transaction_type']"
+                >
+                    <option value="">All Strategies</option>
+                    <option value="CORE">CORE</option>
+                    <option value="Satellite">Satellite</option>
+                    <option value="Growth">Growth</option>
+                    <option value="Value">Value</option>
+                    <option value="Speculative">Speculative</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div 
+                id="transactions-table"
+                hx-get="/api/transactions"
+                hx-trigger="load"
+            >
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading transactions...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+        // Format transaction table from API response
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target.id === 'transactions-table') {
+                try {
+                    const data = JSON.parse(evt.detail.xhr.response);
+                    const transactions = data.transactions;
+                    
+                    if (!transactions || transactions.length === 0) {
+                        evt.detail.target.innerHTML = '<p style="text-align: center; padding: 40px; color: #666;">No transactions found</p>';
+                        return;
+                    }
+                    
+                    let html = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Symbol</th>
+                                    <th>Description</th>
+                                    <th>Quantity</th>
+                                    <th>Price</th>
+                                    <th>Net Amount</th>
+                                    <th>Strategy</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    transactions.forEach(txn => {
+                        const date = new Date(txn.datetime).toLocaleDateString();
+                        const typeBadge = getTypeBadge(txn.type);
+                        const amountClass = txn.net_amount >= 0 ? 'amount-positive' : 'amount-negative';
+                        const amount = txn.net_amount.toFixed(2);
+                        
+                        html += `
+                            <tr>
+                                <td>${date}</td>
+                                <td>${typeBadge}</td>
+                                <td><strong>${txn.symbol || '-'}</strong></td>
+                                <td>${txn.description || '-'}</td>
+                                <td>${txn.quantity}</td>
+                                <td>$${txn.price.toFixed(2)}</td>
+                                <td class="${amountClass}">$${amount}</td>
+                                <td>${txn.strategy_tag || '-'}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table>';
+                    evt.detail.target.innerHTML = html;
+                } catch (e) {
+                    console.error('Error formatting transactions:', e);
+                }
+            }
+        });
+        
+        function getTypeBadge(type) {
+            const badges = {
+                'stock_buy': '<span class="badge badge-buy">Stock Buy</span>',
+                'stock_sell': '<span class="badge badge-sell">Stock Sell</span>',
+                'option_buy': '<span class="badge badge-option">Option Buy</span>',
+                'option_sell': '<span class="badge badge-option">Option Sell</span>',
+                'dividend': '<span class="badge badge-dividend">Dividend</span>',
+            };
+            
+            return badges[type] || `<span class="badge">${type}</span>`;
+        }
+    </script>
+</body>
+</html>
