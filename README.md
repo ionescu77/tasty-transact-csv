@@ -242,4 +242,4 @@ class Position(SQLModel, table=True):
 
 ## License
 
-MIT © Your Name  
+MIT © RaZ
