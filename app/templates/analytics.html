@@ -229,6 +229,24 @@
                         </div>
                         
                         <div class="card">
+                            <h2>Spread Status</h2>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Status</th>
+                                        <th>Count</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>🟢 Open</td><td>${data.spread_status_counts?.open || 0}</td></tr>
+                                    <tr><td>🔴 Closed</td><td>${data.spread_status_counts?.closed || 0}</td></tr>
+                                    <tr><td>⏱️ Expired</td><td>${data.spread_status_counts?.expired || 0}</td></tr>
+                                    <tr><td>⚠️ Orphaned</td><td>${data.spread_status_counts?.orphaned || 0}</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="card">
                             <h2>Transaction Types</h2>
                             <table>
                                 <thead>

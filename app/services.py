@@ -5,9 +5,10 @@ from sqlmodel import Session, select
 from datetime import datetime
 
 from app.models import Account, Transaction, Spread
-from app.csv_parser import read_csv_content
+from app.csv_parser import read_csv_content, extract_account_info_from_filename
 from app.classifier import classify_transaction
 from app.spreads import group_spreads
+from app.spread_status_service import SpreadStatusService
 
 
 class TransactionService:
@@ -19,19 +20,28 @@ class TransactionService:
     def process_csv(
         self,
         content: bytes,
-        account_name: str = "TastyTrade Main"
+        filename: str = "upload.csv",
+        account_name: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Process uploaded CSV file:
-        1. Parse CSV
-        2. Classify transactions
-        3. Group spreads
-        4. Save to database
+        1. Extract account info from filename
+        2. Parse CSV
+        3. Classify transactions
+        4. Group spreads
+        5. Save to database
         
         Returns summary dict with counts.
         """
+        # Extract account info from filename
+        account_code, description = extract_account_info_from_filename(filename)
+        
+        # Use extracted account code or provided name
+        if not account_name:
+            account_name = account_code or "TastyTrade Main"
+        
         # Get or create account
-        account = self._get_or_create_account(account_name)
+        account = self._get_or_create_account(account_name, description)
         
         # Parse CSV
         parsed_transactions = read_csv_content(content)
@@ -89,25 +99,44 @@ class TransactionService:
         
         self.session.commit()
         
+        # Update spread statuses after all transactions are saved
+        status_service = SpreadStatusService(self.session)
+        status_counts = status_service.update_all_spread_statuses()
+        
+        # Calculate corrected P&L (excluding orphaned)
+        realized_pnl = status_service.calculate_realized_pnl(exclude_orphaned=True)
+        
         return {
             'account': account_name,
             'new_transactions': saved_count,
             'updated_transactions': updated_count,
             'spreads_created': len(spread_groups),
-            'total_processed': len(parsed_transactions)
+            'total_processed': len(parsed_transactions),
+            'spread_status_counts': status_counts,
+            'realized_pnl': realized_pnl
         }
     
-    def _get_or_create_account(self, name: str) -> Account:
+    def _get_or_create_account(self, name: str, description: Optional[str] = None) -> Account:
         """Get existing account or create new one."""
         account = self.session.exec(
             select(Account).where(Account.name == name)
         ).first()
         
         if not account:
-            account = Account(name=name)
+            account = Account(
+                name=name,
+                description=description,
+                created_at=datetime.utcnow()
+            )
             self.session.add(account)
             self.session.commit()
             self.session.refresh(account)
+        elif description and account.description != description:
+            # Update description if it changed
+            account.description = description
+            account.updated_at = datetime.utcnow()
+            self.session.add(account)
+            self.session.commit()
         
         return account
     

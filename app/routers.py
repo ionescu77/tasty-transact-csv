@@ -9,6 +9,7 @@ from app.database import get_session_dependency
 from app.services import TransactionService
 from app.models import Transaction, Spread, Position
 from app.position_tracker import PositionTracker
+from app.spread_status_service import SpreadStatusService
 
 router = APIRouter()
 
@@ -16,14 +17,15 @@ router = APIRouter()
 @router.post("/api/upload")
 async def upload_csv(
     file: UploadFile = File(...),
-    account_name: str = Form("TastyTrade Main"),
+    account_name: Optional[str] = Form(None),
     session: Session = Depends(get_session_dependency)
 ):
     """Upload and process CSV file."""
     content = await file.read()
+    filename = file.filename or "upload.csv"
     
     service = TransactionService(session)
-    result = service.process_csv(content, account_name)
+    result = service.process_csv(content, filename=filename, account_name=account_name)
     
     return result
 
@@ -119,8 +121,12 @@ def get_spreads(
         result.append({
             "id": spread.id,
             "created_at": spread.created_at,
+            "closed_at": spread.closed_at,
             "root_symbol": spread.root_symbol,
             "description": spread.description,
+            "status": spread.status,  # open, closed, orphaned, expired
+            "comment": spread.comment,
+            "tags": spread.tags,
             "legs": legs,
             "leg_count": len(legs),
             "total_pnl": total_pnl
@@ -166,13 +172,16 @@ def get_analytics_summary(
     session: Session = Depends(get_session_dependency)
 ):
     """Get analytics summary with P&L and trade stats."""
-    tracker = PositionTracker(session)
+    # Use SpreadStatusService for accurate P&L
+    status_service = SpreadStatusService(session)
+    
+    # Calculate realized P&L (excluding orphaned positions)
+    realized_pnl = status_service.calculate_realized_pnl(exclude_orphaned=True)
     
     # Get positions
-    positions = tracker.get_current_positions(account_id)
-    
-    # Calculate realized P&L
-    realized_pnl = tracker.calculate_realized_pnl(account_id)
+    positions = list(session.exec(
+        select(Position).where(Position.account_id == account_id)
+    ).all())
     
     # Get transaction counts
     total_transactions = session.exec(
@@ -184,14 +193,27 @@ def get_analytics_summary(
     for txn in total_transactions:
         type_counts[txn.type] = type_counts.get(txn.type, 0) + 1
     
-    # Count spreads
-    spread_count = len(session.exec(select(Spread)).all())
+    # Get spread counts by status
+    all_spreads = session.exec(select(Spread)).all()
+    spread_status_counts = {}
+    for spread in all_spreads:
+        spread_status_counts[spread.status] = spread_status_counts.get(spread.status, 0) + 1
     
     return {
         "realized_pnl": realized_pnl,
         "open_positions_count": len(positions),
         "total_transactions": len(total_transactions),
         "transaction_types": type_counts,
-        "spreads_count": spread_count,
-        "positions": positions
+        "spreads_count": len(all_spreads),
+        "spread_status_counts": spread_status_counts,
+        "positions": [
+            {
+                "symbol": p.symbol,
+                "instrument_type": p.instrument_type,
+                "quantity": p.quantity,
+                "average_price": p.average_price,
+                "unrealized_pnl": p.unrealized_pnl or 0
+            }
+            for p in positions
+        ]
     }

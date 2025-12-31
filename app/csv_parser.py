@@ -1,13 +1,42 @@
 """CSV parser for TastyTrade transaction history."""
 
 import csv
+import re
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple, Optional
 from dateutil import parser as date_parser
 import pytz
 
 
 BUCHAREST_TZ = pytz.timezone('Europe/Bucharest')
+
+
+def extract_account_info_from_filename(filename: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Extract account code and description from filename.
+    
+    Example: tastytrade_transactions_history_x5WY77777_250101_to_251125.csv
+    Returns: ('x5WY77777', 'tastytrade transactions history 250101 to 251125')
+    """
+    # Pattern: extract account code (starts with x followed by alphanumeric)
+    # and date range from filename
+    pattern = r'tastytrade_transactions_history_(x\w+)_(\d{6})_to_(\d{6})\.csv'
+    match = re.search(pattern, filename, re.IGNORECASE)
+    
+    if match:
+        account_code = match.group(1)  # e.g., x5WY77777
+        start_date = match.group(2)    # e.g., 250101
+        end_date = match.group(3)      # e.g., 251125
+        
+        description = f"tastytrade transactions history {start_date} to {end_date}"
+        return account_code, description
+    
+    # Fallback: try to extract any pattern like x5WY77777
+    account_match = re.search(r'(x\w+)', filename, re.IGNORECASE)
+    if account_match:
+        return account_match.group(1), f"transactions from {filename}"
+    
+    return None, None
 
 
 def parse_datetime(date_str: str) -> datetime:
