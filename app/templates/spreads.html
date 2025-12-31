@@ -216,14 +216,35 @@
                     spreads.forEach(spread => {
                         const pnlClass = spread.total_pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
                         const date = new Date(spread.created_at).toLocaleDateString();
+                        const closedDate = spread.closed_at ? new Date(spread.closed_at).toLocaleDateString() : null;
+                        
+                        // Status badge
+                        let statusBadge = '';
+                        if (spread.status === 'open') {
+                            statusBadge = '🟢 Open';
+                        } else if (spread.status === 'closed') {
+                            statusBadge = '🔴 Closed';
+                        } else if (spread.status === 'orphaned') {
+                            statusBadge = '⚠️ Orphaned';
+                        } else if (spread.status === 'expired') {
+                            statusBadge = '⏱️ Expired';
+                        }
                         
                         html += `
                             <div class="spread-item">
                                 <div class="spread-header">
                                     <div>
-                                        <div class="spread-title">${spread.root_symbol} - ${spread.leg_count} Legs</div>
+                                        <div class="spread-title">
+                                            ${spread.root_symbol} - ${spread.leg_count} Legs
+                                            <span style="margin-left: 10px; font-size: 0.9rem; color: ${spread.status === 'open' ? '#2e7d32' : spread.status === 'orphaned' ? '#f57c00' : '#666'};">
+                                                ${statusBadge}
+                                            </span>
+                                        </div>
                                         <div class="spread-description">${spread.description || ''}</div>
-                                        <div style="font-size: 0.85rem; color: #999;">Opened: ${date}</div>
+                                        <div style="font-size: 0.85rem; color: #999;">
+                                            Opened: ${date}
+                                            ${closedDate ? ` | Closed: ${closedDate}` : ''}
+                                        </div>
                                     </div>
                                     <div class="spread-pnl ${pnlClass}">
                                         $${spread.total_pnl.toFixed(2)}
